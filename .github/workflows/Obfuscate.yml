@@ -1,65 +1,50 @@
-name: Build and Release
+name: Obfuscate BPB
 
 permissions:
   contents: write
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
   schedule:
-    - cron: '0 */1 * * *'
+    - cron: '0 1 * * *'
 
 jobs:
-  build:
-    if: |
-      github.event_name == 'workflow_dispatch' || 
-      (github.event_name == 'schedule' && github.ref == 'refs/heads/main')
+  obfuscate:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out the code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get release version
-        id: get_version
-        run: echo "version=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
-
-      - name: Check release version
-        run: echo "Release version is ${{ steps.get_version.outputs.version }}"
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "latest"
-
       - name: Install dependencies
-        run: npm install --production
-
-      - name: Type check
-        run: npm run check
-        
-      - name: Build project
-        run: npm run build
-
-      - name: Read release note
-        id: read_release
-        shell: bash
         run: |
-          r=$(cat RELEASE.md)         
-          r="${r//'%'/'%25'}"                               
-          r="${r//$'\n'/'%0A'}"                             
-          r="${r//$'\r'/'%0D'}"                             
-          echo "RELEASE_BODY=$r" >> $GITHUB_OUTPUT          
+          sudo apt-get update
+          sudo apt-get install -y curl nodejs npm
 
-      - name: Upload Release Assets
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: dist/*
-          tag: v${{ steps.get_version.outputs.version }}
-          release_name: Release v${{ steps.get_version.outputs.version }}
-          overwrite: true
-          file_glob: true
-          prerelease: ${{ github.ref != 'refs/heads/main' }}
-          promote: ${{ github.ref == 'refs/heads/main' }}
-          make_latest: ${{ github.ref == 'refs/heads/main' }}
-          body: ${{ steps.read_release.outputs.RELEASE_BODY }}
+      - name: Download latest BPB source
+        run: |
+          curl -L -o origin.js https://raw.githubusercontent.com/BetterPlayerBlock/BetterPlayerBlock/main/worker.js
+
+      - name: Obfuscate BPB
+        run: |
+          npx javascript-obfuscator origin.js \
+            --output _worker.js \
+            --compact true \
+            --control-flow-flattening true \
+            --control-flow-flattening-threshold 1 \
+            --dead-code-injection true \
+            --dead-code-injection-threshold 1 \
+            --string-array true \
+            --string-array-encoding base64 \
+            --string-array-threshold 1
+
+      - name: Commit and push result
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add origin.js _worker.js
+          git commit -m "Update obfuscated BPB" || echo "No changes"
+          git push
