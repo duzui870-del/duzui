@@ -1,4 +1,4 @@
-      - name: Download BPB worker (release v4.1.0)
+      - name: Download   BPB worker (release v4.1.0)
         run: |
           curl -fL \
             https://github.com/bia-pain-bache/BPB-Worker-Panel/releases/download/v4.1.0/worker.js \
