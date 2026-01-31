@@ -1,32 +1,15 @@
-name: Obfuscate BPB
-
-permissions:
-  contents: write
-
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-  schedule:
-    - cron: '0 1 * * *'
-
-jobs:
-  obfuscate:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
+      - name: Download BPB worker (release v4.1.0)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y curl nodejs npm
+          curl -fL \
+            https://github.com/bia-pain-bache/BPB-Worker-Panel/releases/download/v4.1.0/worker.js \
+            -o origin.js
 
-      - name: Download latest BPB source
+      - name: Verify downloaded file
         run: |
-          curl -L -o origin.js https://raw.githubusercontent.com/BetterPlayerBlock/BetterPlayerBlock/main/worker.js
+          echo "==== origin.js head ===="
+          head -n 5 origin.js
+          echo "==== file type ===="
+          file origin.js
 
       - name: Obfuscate BPB
         run: |
@@ -40,11 +23,3 @@ jobs:
             --string-array true \
             --string-array-encoding base64 \
             --string-array-threshold 1
-
-      - name: Commit and push result
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add origin.js _worker.js
-          git commit -m "Update obfuscated BPB" || echo "No changes"
-          git push
